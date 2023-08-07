@@ -4,26 +4,36 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
-import java.time.LocalDateTime;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Date;
 
 @RestController
 public class ApiController {
-    private User user;
+    private App_DB appDB;
+
+
     // GET запрос
-    @GetMapping("/data")
-    public User getStaticData() {
-        user = new User("User",  "User_Password");
-        return user;
+    @GetMapping("/user/{login}")
+    public App_DB selByLogin(@PathVariable String login) {
+        appDB = new App_DB();
+        try {
+            appDB.selectByLogin(login);
+            return appDB;
+        } catch (SQLException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+        }
+
     }
 
     // POST запрос
     @PostMapping("/login")
-    public User login(@RequestBody User requestUser) {
-        if ( requestUser.login == null || requestUser.password == null ||  requestUser.login.isEmpty() || requestUser.password.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Login and password are required");
+    public String login(@RequestBody App_DB reqAppDB){
+        reqAppDB.insertData();
+        if ( reqAppDB.login == null || reqAppDB.password == null || reqAppDB.date == null || reqAppDB.email == null || reqAppDB.login.isEmpty() || reqAppDB.password.isEmpty() || reqAppDB.date.isEmpty() || reqAppDB.email.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Data required");
         }
-        return requestUser;
+        return "User \"" + reqAppDB.login + "\" added.";
     }
 }
