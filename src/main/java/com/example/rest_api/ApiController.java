@@ -1,39 +1,51 @@
 package com.example.rest_api;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
 import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Date;
+import java.io.IOException;
 
 @RestController
 public class ApiController {
-    private App_DB appDB;
-
-
-    // GET запрос
     @GetMapping("/user/{login}")
-    public App_DB selByLogin(@PathVariable String login) {
-        appDB = new App_DB();
+    public ResponseEntity<User> getUser(@PathVariable String login) throws Exception{
         try {
-            appDB.selectByLogin(login);
-            return appDB;
-        } catch (SQLException e) {
+            User user = App_DB.selectByLogin(login);
+
+            if (user == null){
+                throw new UserNotFoundException("DB problems");
+            }
+            FileService.writeToFile(user, "user_data.txt");
+            return ResponseEntity.ok(user);
+        } catch (SQLException | UserNotFoundException e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
-
     }
 
-    // POST запрос
-    @PostMapping("/login")
-    public String login(@RequestBody App_DB reqAppDB){
-        reqAppDB.insertData();
-        if ( reqAppDB.login == null || reqAppDB.password == null || reqAppDB.date == null || reqAppDB.email == null || reqAppDB.login.isEmpty() || reqAppDB.password.isEmpty() || reqAppDB.date.isEmpty() || reqAppDB.email.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Data required");
+    @GetMapping("/randomString")
+    public ResponseEntity<String> getRandomString() {
+        try {
+            FileService fileReaderService = new FileService();
+            String randomString = fileReaderService.getRandomString("user_data.txt");
+            return ResponseEntity.ok(randomString);
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error reading");
         }
-        return "User \"" + reqAppDB.login + "\" added.";
     }
+
+    @PostMapping("/login")
+    public ResponseEntity<String> postUser(@RequestBody User user) throws Exception{
+        try {
+            String result = App_DB.insertData(user);
+
+            return ResponseEntity.ok(result);
+        }catch (SQLException | UserNotFoundException e){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+
+    }
+
 }

@@ -1,40 +1,29 @@
 package com.example.rest_api;
 
+
 import java.sql.*;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 public class App_DB {
 
-    public String login;
-    public String password;
-    public String date;
-    public String email;
     private static final String DB_URL = "jdbc:postgresql://localhost:5432/database_postgres";
     private static final String USER = "postgres_user";
     private static final String PASSWORD = "postgres_password";
-
-    public class UserNotFoundException extends RuntimeException {
-        public UserNotFoundException(String message) {
-            super(message);
-        }
-    }
+    private static final String table1 = "user_data";
+    private static final String table2 = "registration;
 
     // Выполнение запроса select по login из двух таблиц
-    public void selectByLogin(String inLogin) throws SQLException {
+    static public User selectByLogin(String inLogin) throws SQLException {
         Connection connection = null;
-        Statement statement = null;
-        ResultSet resultSet = null;
-
         try {
             // Устанавливаем соединение с базой данных
             connection = DriverManager.getConnection(DB_URL, USER, PASSWORD);
 
             // Создаем и выполняем SQL-запрос
-            statement = connection.createStatement();
+            Statement statement = connection.createStatement();
             String sqlQuery = "SELECT * FROM user_data JOIN registration ON user_data.login = registration.login WHERE user_data.login = '" + inLogin + "'";
-            resultSet = statement.executeQuery(sqlQuery);
+            ResultSet resultSet = statement.executeQuery(sqlQuery);
 
             // Обрабатываем результаты запроса
             if (resultSet.next()) {
@@ -43,54 +32,47 @@ public class App_DB {
                 java.sql.Date foundDate = resultSet.getDate("date");
                 String foundEmail = resultSet.getString("email");
 
-                login = foundLogin;
-                password = foundPassword;
-                date = foundDate.toString();
-                email = foundEmail;
+                User user = new User(foundLogin, foundPassword, foundDate, foundEmail);
+                return user;
             }
             else {
-                throw new SQLException("No user with login \"" + inLogin + " found");
+                throw new UserNotFoundException("No user with login \"" + inLogin + "\" found");
             }
-        } catch (SQLException e) {
+        } catch (SQLException | UserNotFoundException e) {
             throw e;
         } finally {
             // Закрываем ресурсы
-            try {
-                if (resultSet != null) resultSet.close();
-                if (statement != null) statement.close();
-                if (connection != null) connection.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+            if (connection != null) { connection.close(); }
         }
     }
 
     // Выполнение запроса - вставка данных в обе таблицы
-    public void insertData() {
-        try (Connection connection = DriverManager.getConnection(DB_URL, USER, PASSWORD)) {
-            // Подготавливаем SQL-запрос для вставки данных в таблицу user_data
-            String userDataInsertQuery = "INSERT INTO user_data (login, password, date) VALUES (?, ?, ?)";
-            PreparedStatement userDataPreparedStatement = connection.prepareStatement(userDataInsertQuery);
-            userDataPreparedStatement.setString(1, login);
-            userDataPreparedStatement.setString(2, password);
-            Date parsedDate = Date.valueOf(date);
-            userDataPreparedStatement.setDate(3, parsedDate);
 
-            // Выполняем запрос для вставки данных в user_data
-            userDataPreparedStatement.executeUpdate();
 
-            // Подготавливаем SQL-запрос для вставки данных в таблицу registration
-            String registrationInsertQuery = "INSERT INTO registration (login, email) VALUES (?, ?)";
-            PreparedStatement registrationPreparedStatement = connection.prepareStatement(registrationInsertQuery);
-            registrationPreparedStatement.setString(1, login);
-            registrationPreparedStatement.setString(2, email);
+    static public String insertData(User user) throws Exception{
+        String query = "INSERT INTO user_data (login, password, date) VALUES (?, ?, ?); \n" +
+                "INSERT INTO registration (login, email) VALUES (?, ?);";
+        LocalDate date = LocalDate.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-            // Выполняем запрос для вставки данных в registration
-            registrationPreparedStatement.executeUpdate();
+        if (user.login == null || user.email == null || user.password == null){
+            throw new com.example.rest_api.UserNotFoundException("Data required");
+        }
+        try (Connection connection = DriverManager.getConnection(DB_URL, USER, PASSWORD);
+        PreparedStatement preparedStatement = connection.prepareStatement(query)){
 
-            System.out.println("Data inserted successfully into both tables.");
+            preparedStatement.setString(1, user.login);
+            preparedStatement.setString(2, user.password);
+            preparedStatement.setDate(3, Date.valueOf(date.format(formatter)));
+            preparedStatement.setString(4, user.login);
+            preparedStatement.setString(5, user.email);
+            int row = preparedStatement.executeUpdate();
+
+            return new String ("{'status':'ok, 'updatedRows':" + row + ", 'date':'" + LocalDate.now() + "'}");
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.out.println("Problem!");
+            System.out.println(e.getMessage());
+            throw new SQLException(e.getMessage());
         }
     }
 }
