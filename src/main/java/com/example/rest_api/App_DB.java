@@ -11,7 +11,7 @@ public class App_DB {
     private static final String USER = "postgres_user";
     private static final String PASSWORD = "postgres_password";
     private static final String table1 = "user_data";
-    private static final String table2 = "registration;
+    private static final String table2 = "registration";
 
     // Выполнение запроса select по login из двух таблиц
     static public User selectByLogin(String inLogin) throws SQLException {
